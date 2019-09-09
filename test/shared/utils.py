@@ -76,11 +76,11 @@ def expected_wheels(package_name, package_version):
         ]
     elif platform == 'macos':
         templates = [
-            '{package_name}-{package_version}-cp27-cp27m-macosx_10_6_intel.whl',
+            '{package_name}-{package_version}-cp27-cp27m-macosx_10_9_x86_64.whl',
             '{package_name}-{package_version}-cp34-cp34m-macosx_10_6_intel.whl',
             '{package_name}-{package_version}-cp35-cp35m-macosx_10_6_intel.whl',
-            '{package_name}-{package_version}-cp36-cp36m-macosx_10_6_intel.whl',
-            '{package_name}-{package_version}-cp37-cp37m-macosx_10_6_intel.whl',
+            '{package_name}-{package_version}-cp36-cp36m-macosx_10_9_x86_64.whl',
+            '{package_name}-{package_version}-cp37-cp37m-macosx_10_9_x86_64.whl',
         ]
     else:
         raise Exception('unsupported platform')
