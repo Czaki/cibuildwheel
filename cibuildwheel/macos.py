@@ -14,10 +14,10 @@ def get_python_configurations(build_selector):
     PythonConfiguration = namedtuple('PythonConfiguration', ['version', 'identifier', 'url'])
     python_configurations = [
         PythonConfiguration(version='2.7', identifier='cp27-macosx_10_9_intel', url='https://www.python.org/ftp/python/2.7.16/python-2.7.16-macosx10.9.pkg'),
-        PythonConfiguration(version='3.4', identifier='cp34-macosx_10_9_intel', url='https://www.python.org/ftp/python/3.4.4/python-3.4.4-macosx10.9.pkg'),
-        PythonConfiguration(version='3.5', identifier='cp35-macosx_10_9_intel', url='https://www.python.org/ftp/python/3.5.4/python-3.5.4-macosx10.9.pkg'),
+        PythonConfiguration(version='3.4', identifier='cp34-macosx_10_9_intel', url='https://www.python.org/ftp/python/3.4.4/python-3.4.4-macosx10.6.pkg'),
+        PythonConfiguration(version='3.5', identifier='cp35-macosx_10_9_intel', url='https://www.python.org/ftp/python/3.5.4/python-3.5.4-macosx10.6.pkg'),
         PythonConfiguration(version='3.6', identifier='cp36-macosx_10_9_intel', url='https://www.python.org/ftp/python/3.6.8/python-3.6.8-macosx10.9.pkg'),
-        PythonConfiguration(version='3.7', identifier='cp37-macosx_10_9_intel', url='https://www.python.org/ftp/python/3.7.2/python-3.7.2-macosx10.9.pkg'),
+        PythonConfiguration(version='3.7', identifier='cp37-macosx_10_9_intel', url='https://www.python.org/ftp/python/3.7.4/python-3.7.4-macosx10.9.pkg'),
     ]
 
     # skip builds as required
