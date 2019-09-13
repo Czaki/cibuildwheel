@@ -6,7 +6,8 @@ This file is added to the PYTHONPATH in the test runner at bin/run_test.py.
 
 import subprocess, sys, os
 
-IS_RUNNING_ON_AZURE = os.path.exists('C:\\hostedtoolcache')
+IS_WINDOWS_RUNNING_ON_AZURE = os.path.exists('C:\\hostedtoolcache')
+IS_WINDOWS_RUNNING_ON_TRAVIS = os.environ.get('TRAVIS_OS_NAME') == 'windows'
 
 
 def cibuildwheel_get_build_identifiers(project_path, env=None):
@@ -38,10 +39,10 @@ def cibuildwheel_run(project_path, env=None, add_env=None):
 
     subprocess.check_call(
         [sys.executable, '-m', 'cibuildwheel', project_path],
-        env=env,
+        env=env
     )
-
-
+ 
+ 
 def expected_wheels(package_name, package_version):
     '''
     Returns a list of expected wheels from a run of cibuildwheel.
@@ -75,19 +76,26 @@ def expected_wheels(package_name, package_version):
             '{package_name}-{package_version}-cp37-cp37m-win_amd64.whl',
         ]
     elif platform == 'macos':
+        if "MACOSX_DEPLOYMENT_TARGET" not in os.environ:
+            tag = "10_9"
+        else:
+            tag = os.environ["MACOSX_DEPLOYMENT_TARGET"].replace(".", "_")
         templates = [
-            '{package_name}-{package_version}-cp27-cp27m-macosx_10_9_x86_64.whl',
-            '{package_name}-{package_version}-cp34-cp34m-macosx_10_6_intel.whl',
-            '{package_name}-{package_version}-cp35-cp35m-macosx_10_6_intel.whl',
-            '{package_name}-{package_version}-cp36-cp36m-macosx_10_9_x86_64.whl',
-            '{package_name}-{package_version}-cp37-cp37m-macosx_10_9_x86_64.whl',
+            '{package_name}-{package_version}-cp27-cp27m-macosx_' + tag + '_intel.whl',
+            '{package_name}-{package_version}-cp34-cp34m-macosx_' + tag + '_intel.whl',
+            '{package_name}-{package_version}-cp35-cp35m-macosx_' + tag + '_intel.whl',
+            '{package_name}-{package_version}-cp36-cp36m-macosx_' + tag + '_intel.whl',
+            '{package_name}-{package_version}-cp37-cp37m-macosx_' + tag + '_intel.whl',
         ]
     else:
         raise Exception('unsupported platform')
     
-    if IS_RUNNING_ON_AZURE:
+    if IS_WINDOWS_RUNNING_ON_AZURE or IS_WINDOWS_RUNNING_ON_TRAVIS:
         # Python 3.4 isn't supported on Azure.
         templates = [t for t in templates if '-cp34-' not in t]
+    if IS_WINDOWS_RUNNING_ON_TRAVIS:
+        # Python 2.7 and 3.4 isn't supported on Travis.
+        templates = [t for t in templates if '-cp27-' not in t and '-cp34-' not in t]
     
     return [filename.format(package_name=package_name, package_version=package_version)
             for filename in templates]

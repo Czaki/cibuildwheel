@@ -8,7 +8,7 @@ jobs:
         python ./bin/run_tests.py
 
 - job: macos
-  pool: {vmImage: 'macOS-10.13'}
+  pool: {vmImage: 'macOS-10.14'}
   steps: 
     - task: UsePythonVersion@0
     - bash: |

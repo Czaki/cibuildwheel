@@ -14,13 +14,15 @@ What does it do?
 
 |   | macOS 10.6+ | manylinux i686 | manylinux x86_64 |  Windows 32bit | Windows 64bit |
 |---|---|---|---|---|---|
-| Python 2.7 | ✅ | ✅ | ✅ | ✅  | ✅  |
-| Python 3.4 | ✅ | ✅ | ✅ | ✅* | ✅* |
+| Python 2.7 | ✅ | ✅ | ✅ | ✅² | ✅² |
+| Python 3.4 | ✅ | ✅ | ✅ | ✅¹²| ✅¹²|
 | Python 3.5 | ✅ | ✅ | ✅ | ✅  | ✅  |
 | Python 3.6 | ✅ | ✅ | ✅ | ✅  | ✅  |
 | Python 3.7 | ✅ | ✅ | ✅ | ✅  | ✅  |
 
-> \* Not supported on Azure Pipelines
+> ¹ Not supported on Azure Pipelines 
+>
+> ² Current configuration for travis do not support this python version but user can find method for install proper python on travis. For python 2.7 there is a problem with installation "Microsoft Visual C++ Compiler for Python 2.7"
 
 - Builds manylinux, macOS and Windows (32 and 64bit) wheels using Azure Pipelines, Travis CI, AppVeyor, and CircleCI
 - Bundles shared library dependencies on Linux and macOS through [auditwheel](https://github.com/pypa/auditwheel) and [delocate](https://github.com/matthew-brett/delocate)
@@ -34,9 +36,10 @@ Usage
 |                 | Linux | macOS | Windows |
 |-----------------|-------|-------|---------|
 | Azure Pipelines | ✅    | ✅    | ✅      |
-| Travis CI       | ✅    | ✅    |         |
+| Travis CI       | ✅    | ✅    | ✅*     |
 | AppVeyor        |       |       | ✅      |
 | CircleCI        | ✅    | ✅    |         |
+> \* Travis provides a Windows environment but Python needs to be installed manually 
 
 `cibuildwheel` is not intended to run on your development machine. It will try to install packages globally; this is no good. Travis CI, CircleCI, and AppVeyor run their builds in isolated environments, so are ideal for this kind of script.
 
@@ -101,11 +104,12 @@ jobs:
     <summary><b>Travis CI</b>
         <img width="16" src="https://unpkg.com/simple-icons@latest/icons/apple.svg" />
         <img width="16" src="https://unpkg.com/simple-icons@latest/icons/linux.svg" />
+        <img width="16" src="https://unpkg.com/simple-icons@latest/icons/windows.svg" />
     </summary>
 
 - To build Linux and Mac wheels on Travis CI, create a `.travis.yml` file in your repo.
 
-    ```
+    ```yaml
     language: python
     
     matrix:
@@ -122,6 +126,16 @@ jobs:
       - $PIP install cibuildwheel==0.11.1
       - cibuildwheel --output-dir wheelhouse
     ```
+
+  and matrix entry for windows 
+  ```yaml
+    - os: windows
+      language: shell
+      before_install:
+       - choco install python3 --version 3.6.8 --no-progress -y
+      env:
+       - PATH=/c/Python36:/c/Python36/Scripts:$PATH
+  ```
 
   Then setup a deployment method by following the [Travis CI deployment docs](https://docs.travis-ci.com/user/deployment/), or see [Delivering to PyPI](#delivering-to-pypi) below.
 
@@ -225,6 +239,7 @@ All being well, you should get wheels delivered to you in a few minutes.
 |   | `CIBW_MANYLINUX1_I686_IMAGE` | Specify an alternative manylinux1 i686 docker image |
 | **Tests** | `CIBW_TEST_COMMAND` | Execute a shell command to test all built wheels |
 |   | `CIBW_TEST_REQUIRES` | Install Python dependencies before running the tests |
+|   | `CIBW_TEST_EXTRAS` | Install Python dependencies before running the tests using ``extras_require``|
 
 A more detailed description of the options, the allowed values, and some examples can be found in the [Options](#options) section.
 
@@ -234,6 +249,25 @@ Linux wheels are built in the [`manylinux1` docker images](https://github.com/py
 - Programs and libraries cannot be installed on the Travis CI Ubuntu host with `apt-get`, but can be installed inside of the Docker image using `yum` or manually. The same goes for environment variables that are potentially needed to customize the wheel building. `cibuildwheel` supports this by providing the `CIBW_ENVIRONMENT` and `CIBW_BEFORE_BUILD` options to setup the build environment inside the running Docker image. See [below](#options) for details on these options.
 - The project directory is mounted in the running Docker instance as `/project`, the output directory for the wheels as `/output`. In general, this is handled transparently by `cibuildwheel`. For a more finegrained level of control however, the root of the host file system is mounted as `/host`, allowing for example to access shared files, caches, etc. on the host file system.  Note that this is not available on CircleCI due to their Docker policies.
 - Alternative dockers images can be specified with the `CIBW_MANYLINUX1_X86_64_IMAGE` and `CIBW_MANYLINUX1_I686_IMAGE` options to allow for a custom, preconfigured build environment for the Linux builds. See [below](#options) for more details.
+
+Moden C++ standards
+-------------------
+Python 2.7 use `register` keyword which is prohibited in c++17 standard. 
+
+Linux
+=====
+For `manulinux1` images only c++11 standards is supported. c++14 and c++17 will be supported with manylinux2010 image
+
+MacOS
+=====
+To get c++11 and c++14 upport need to set `MACOSX_DEPLOYMENT_TARGET` variable to `10.9` value
+
+To get c++17 support need to set `MACOSX_DEPLOYMENT_TARGET` variable to `10.13` or `10.14` value. `10.13` supports c++17 partialy, eg. filesystem header is in experimental: `#include<filesystem> -> #include<experimental/filesystem>`
+
+Windows
+=======
+Visual C++ for Python 2.7 do not support modern standards of c++.  
+Also MSVC 10.0 
 
 
 Options
@@ -412,6 +446,25 @@ Example: `nose==1.3.7 moto==0.4.31`
 Platform-specific variants also available:
 `CIBW_TEST_REQUIRES_MACOS` | `CIBW_TEST_REQUIRES_WINDOWS` | `CIBW_TEST_REQUIRES_LINUX`
 
+***
+
+| Environment variable: `CIBW_TEST_EXTRAS`
+| ---
+
+Optional.
+
+Comma-separated list of
+[extras_require](https://setuptools.readthedocs.io/en/latest/setuptools.html#declaring-extras-optional-features-with-their-own-dependencies)
+options that should be included when installing the wheel prior to running the
+tests. This can be used to avoid having to redefine test dependencies in
+``CIBW_TEST_REQUIRES`` if they are already defined in ``setup.py`` or
+``setup.cfg``.
+
+Example: `test,qt` (will cause the wheel to be installed with ``pip install <wheel_file>[test,qt])
+
+
+Platform-specific variants also available:
+`CIBW_TEST_EXTRAS_MACOS` | `CIBW_TEST_EXTRAS_WINDOWS` | `CIBW_TEST_EXTRAS_LINUX`
 
 ### Example YML syntax
 
