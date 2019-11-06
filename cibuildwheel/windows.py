@@ -3,6 +3,7 @@ import os, tempfile, subprocess, shutil, sys
 from time import sleep
 from collections import namedtuple
 from glob import glob
+from zipfile import ZipFile
 
 try:
     from shlex import quote as shlex_quote
@@ -21,9 +22,14 @@ IS_RUNNING_ON_AZURE = os.path.exists('C:\\hostedtoolcache')
 IS_RUNNING_ON_TRAVIS = os.environ.get('TRAVIS_OS_NAME') == 'windows'
 
 
-def get_python_path(config):
-    nuget_args = get_nuget_args(config)
-    return os.path.join(nuget_args[-1], nuget_args[0] + "." + config.version, "tools")
+def get_python_path(config): 
+    if config.identifier.startswith('cp'):
+        nuget_args = get_nuget_args(config)
+        return os.path.join(nuget_args[-1], nuget_args[0] + "." + config.version, "tools")
+    elif config.identifier.startswith('pp'):
+        # Inside the PyPy zip file is a directory with the same name
+        filename = config.url.rsplit('/', 1)[-1]
+        return os.path.join("C:\\PyPy", os.path.splitext(filename)[0])
 
 
 def get_nuget_args(configuration):
@@ -32,25 +38,28 @@ def get_nuget_args(configuration):
         python_name = python_name + "x86"
     return [python_name, "-Version", configuration.version, "-OutputDirectory", "C:/cibw/python"]
 
+
 def get_python_configurations(build_selector):
-    PythonConfiguration = namedtuple('PythonConfiguration', ['version', 'arch', 'identifier'])
+    PythonConfiguration = namedtuple('PythonConfiguration', ['version', 'arch', 'identifier', 'url'])
     python_configurations = [
-        PythonConfiguration(version='2.7.17', arch="32", identifier='cp27-win32'),
-        PythonConfiguration(version='2.7.17', arch="64", identifier='cp27-win_amd64'),
-        PythonConfiguration(version='3.5.4', arch="32", identifier='cp35-win32'),
-        PythonConfiguration(version='3.5.4', arch="64", identifier='cp35-win_amd64'),
-        PythonConfiguration(version='3.6.8', arch="32", identifier='cp36-win32'),
-        PythonConfiguration(version='3.6.8', arch="64", identifier='cp36-win_amd64'),
-        PythonConfiguration(version='3.7.6', arch="32", identifier='cp37-win32'),
-        PythonConfiguration(version='3.7.6', arch="64", identifier='cp37-win_amd64'),
-        PythonConfiguration(version='3.8.1', arch="32", identifier='cp38-win32'),
-        PythonConfiguration(version='3.8.1', arch="64", identifier='cp38-win_amd64'),
+        PythonConfiguration(version='2.7.17', arch="32", identifier='cp27-win32', url=None),
+        PythonConfiguration(version='2.7.17', arch="64", identifier='cp27-win_amd64', url=None),
+        PythonConfiguration(version='3.5.4', arch="32", identifier='cp35-win32', url=None),
+        PythonConfiguration(version='3.5.4', arch="64", identifier='cp35-win_amd64', url=None),
+        PythonConfiguration(version='3.6.8', arch="32", identifier='cp36-win32', url=None),
+        PythonConfiguration(version='3.6.8', arch="64", identifier='cp36-win_amd64', url=None),
+        PythonConfiguration(version='3.7.6', arch="32", identifier='cp37-win32', url=None),
+        PythonConfiguration(version='3.7.6', arch="64", identifier='cp37-win_amd64', url=None),
+        PythonConfiguration(version='3.8.1', arch="32", identifier='cp38-win32', url=None),
+        PythonConfiguration(version='3.8.1', arch="64", identifier='cp38-win_amd64', url=None),
+        PythonConfiguration(version='2.7-v7.2.0', arch="32", identifier='pp272-win32', url='https://bitbucket.org/pypy/pypy/downloads/pypy2.7-v7.2.0-win32.zip'),
+        PythonConfiguration(version='3.6-v7.2.0', arch="32", identifier='pp372-win32', url='https://bitbucket.org/pypy/pypy/downloads/pypy3.6-v7.2.0-win32.zip'),
     ]
 
     if IS_RUNNING_ON_TRAVIS:
         # cannot install VCForPython27.msi which is needed for compiling C software
         # try with (and similar): msiexec /i VCForPython27.msi ALLUSERS=1 ACCEPT=YES /passive
-        python_configurations = [c for c in python_configurations if not c.version.startswith('2.7.')]
+        python_configurations = [c for c in python_configurations if not c.version.startswith('2.7')]
 
      # skip builds as required
     python_configurations = [c for c in python_configurations if build_selector(c.identifier)]
@@ -86,6 +95,10 @@ def build(project_dir, output_dir, test_command, test_requires, test_extras, bef
         finally:
             response.close()
 
+    def extract_zip(zip_src, dest):
+        with ZipFile(zip_src) as zip:
+            zip.extractall(dest)
+
     if IS_RUNNING_ON_AZURE or IS_RUNNING_ON_TRAVIS:
         shell = simple_shell
     else:
@@ -115,7 +128,17 @@ def build(project_dir, output_dir, test_command, test_requires, test_extras, bef
     for config in python_configurations:
         # install Python
         config_python_path = get_python_path(config)
-        simple_shell([nuget, "install"] + get_nuget_args(config))
+        if config.identifier.startswith('cp'):
+            simple_shell([nuget, "install"] + get_nuget_args(config))
+        elif config.identifier.startswith('pp') and not os.path.exists(config_python_path):
+            pypy_zip = config.url.rsplit('/', 1)[-1]
+            download(config.url, pypy_zip)
+            # Extract to the parent of config_python_path because the zip file still contains a directory
+            extract_zip(pypy_zip, os.path.dirname(config_python_path))
+            pypy_exe = 'pypy.exe' if config.version[0] == '2' else 'pypy3.exe'
+            simple_shell(['mklink', os.path.join(config_python_path, 'python.exe'), os.path.join(config_python_path, pypy_exe)])
+            simple_shell(['mklink', '/d', os.path.join(config_python_path, 'Scripts'), os.path.join(config_python_path, 'bin')])
+            simple_shell(['chcp', '437'])  # Workaround for https://bitbucket.org/pypy/pypy/issues/3081/
         assert os.path.exists(os.path.join(config_python_path, 'python.exe'))
 
         # set up PATH and environment variables for run_with_env
