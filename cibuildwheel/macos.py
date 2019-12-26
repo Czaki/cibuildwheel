@@ -50,50 +50,59 @@ def build(project_dir, output_dir, test_command, test_requires, test_extras, bef
             print('+ ' + ' '.join(shlex_quote(a) for a in args))
 
         return subprocess.check_call(args, env=env, cwd=cwd, shell=shell)
+  
+    def install_cpython(version, url):
+         # if this version of python isn't installed, get it from python.org and install
+        python_package_identifier = 'org.python.Python.PythonFramework-{}'.format(version)
+        if python_package_identifier not in installed_system_packages:
+            # download the pkg
+            call(['curl', '-L', '-o', '/tmp/Python.pkg', url])
+            # install
+            call(['sudo', 'installer', '-pkg', '/tmp/Python.pkg', '-target', '/'])
+            # patch open ssl
+            if version == '3.5':
+                call(['curl', '-fsSLo', '/tmp/python-patch.tar.gz', 'https://github.com/mayeut/patch-macos-python-openssl/releases/download/v1.0.2t/patch-macos-python-%s-openssl-v1.0.2t.tar.gz' % config.version])
+                call(['sudo', 'tar', '-C', '/Library/Frameworks/Python.framework/Versions/{}/'.format(version), '-xmf', '/tmp/python-patch.tar.gz'])
+        return '/Library/Frameworks/Python.framework/Versions/{}/bin'.format(version)
+    
+    def install_pypy(version, url):
+        pypy_tar_bz2 = url.rsplit('/', 1)[-1]
+        assert pypy_tar_bz2.endswith(".tar.bz2")
+        pypy_base_filename = os.path.splitext(os.path.splitext(pypy_tar_bz2)[0])[0]
+        installation_path = os.path.join('/tmp', pypy_base_filename)
+        if not os.path.exists(installation_path):
+            call(['curl', '-L', '-o', os.path.join("/tmp", pypy_tar_bz2), url])
+            call(['tar', '-C', '/tmp', '-xf', os.path.join("/tmp", pypy_tar_bz2)])
+        return os.path.join(installation_path, 'bin')
+
 
     # get latest pip once and for all
-
     call(['curl', '-L', '--retry', '3', '--retry-delay', '3', '-o', get_pip_script, get_pip_url])
 
     for config in python_configurations:
         if config.identifier.startswith('cp'):
-            # if this version of python isn't installed, get it from python.org and install
-            python_package_identifier = 'org.python.Python.PythonFramework-%s' % config.version
-            if python_package_identifier not in installed_system_packages:
-                # download the pkg
-                call(['curl', '-L', '-o', '/tmp/Python.pkg', config.url])
-                # install
-                call(['sudo', 'installer', '-pkg', '/tmp/Python.pkg', '-target', '/'])
-                # patch open ssl
-                if config.version == '3.5':
-                    call(['curl', '-fsSLo', '/tmp/python-patch.tar.gz', 'https://github.com/mayeut/patch-macos-python-openssl/releases/download/v1.0.2t/patch-macos-python-%s-openssl-v1.0.2t.tar.gz' % config.version])
-                    call(['sudo', 'tar', '-C', '/Library/Frameworks/Python.framework/Versions/%s/' % config.version, '-xmf', '/tmp/python-patch.tar.gz'])
-
-            installation_bin_path = '/Library/Frameworks/Python.framework/Versions/{}/bin'.format(config.version)
+            installation_bin_path = install_cpython(config.version, config.url)
+            python_executable = 'python3' if config.version[0] == '3' else 'python'
+            pip_executable = 'pip3' if config.version[0] == '3' else 'pip'
         elif config.identifier.startswith('pp'):
-            pypy_tar_bz2 = config.url.rsplit('/', 1)[-1]
-            assert pypy_tar_bz2.endswith(".tar.bz2")
-            pypy_base_filename = os.path.splitext(os.path.splitext(pypy_tar_bz2)[0])[0]
-            installation_bin_path = os.path.join('/tmp', pypy_base_filename, 'bin')
-            if not os.path.exists(installation_bin_path):
-                call(['curl', '-L', '-o', os.path.join("/tmp", pypy_tar_bz2), config.url])
-                call(['tar', '-C', '/tmp', '-xf', os.path.join("/tmp", pypy_tar_bz2)])
-                pypy_executable = 'pypy' if config.version[0] == '2' else 'pypy3'
-                python_symlink = 'python' if config.version[0] == '2' else 'python3'
-                os.symlink(os.path.join(installation_bin_path, pypy_executable), os.path.join(installation_bin_path, python_symlink))
+            installation_bin_path = install_pypy(config.version, config.url)
+            python_executable = 'pypy3' if config.version[0] == '3' else 'pypy'
+            pip_executable = 'pip3' if config.version[0] == '3' else 'pip'
+        else:
+            raise ValueError("Unknown Python implementation")
 
-        assert os.path.exists(os.path.join(installation_bin_path, 'python3' if config.version[0] == '3' else 'python'))
+        assert os.path.exists(os.path.join(installation_bin_path, python_executable))
 
-        # Python bin folders on Mac don't symlink python3 to python, so we do that
-        # so `python` and `pip` always point to the active configuration.
+        # Python bin folders on Mac don't symlink `python3` to `python`, and neither
+        # does PyPy for `pypy` or `pypy3`, so we do that so `python` and `pip` always
+        # point to the active configuration.
         if os.path.exists('/tmp/cibw_bin'):
             shutil.rmtree('/tmp/cibw_bin')
         os.makedirs('/tmp/cibw_bin')
 
-        if config.version[0] == '3':
-            os.symlink(os.path.join(installation_bin_path, 'python3'), '/tmp/cibw_bin/python')
-            os.symlink(os.path.join(installation_bin_path, 'python3-config'), '/tmp/cibw_bin/python-config')
-            os.symlink(os.path.join(installation_bin_path, 'pip3'), '/tmp/cibw_bin/pip')
+        os.symlink(os.path.join(installation_bin_path, python_executable), '/tmp/cibw_bin/python')
+        os.symlink(os.path.join(installation_bin_path, python_executable + '-config'), '/tmp/cibw_bin/python-config')
+        os.symlink(os.path.join(installation_bin_path, pip_executable), '/tmp/cibw_bin/pip')
 
         env = os.environ.copy()
         env['PATH'] = os.pathsep.join([
