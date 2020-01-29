@@ -101,11 +101,8 @@ def expected_wheels(package_name, package_version, manylinux_versions=['manylinu
         def get_platform_tags(python_abi_tag):
             default_version = '10.6'
             architecture = 'intel'
-            if python_abi_tag == 'pp27-pypy_73':
+            if python_abi_tag.startswith('pp'):
                 default_version = '10.7'
-                architecture = 'x86_64'
-            elif python_abi_tag == 'pp36-pypy36_pp73':
-                default_version = '10.13'
                 architecture = 'x86_64'
             elif python_abi_tag == 'cp38-cp38':
                 default_version = '10.9'
