@@ -62,7 +62,11 @@ def build(project_dir, output_dir, test_command, test_requires, test_extras, bef
 
             {environment_exports}
 
+            $(cat $(which auditwheel) | head -1 | tail -c +3 | head -c -1) -m pip install --upgrade auditwheel>=3.1.0
+
             for PYBIN in {pybin_paths}; do
+                PATH="$PYBIN:$PATH" "$PYBIN/pip" install --upgrade pip setuptools wheel
+
                 if [ ! -z {before_build} ]; then
                     PATH="$PYBIN:$PATH" sh -c {before_build}
                 fi
