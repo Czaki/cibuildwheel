@@ -19,7 +19,7 @@ def test_cpp11(tmp_path):
     actual_wheels = utils.cibuildwheel_run(project_dir, add_env=add_env)
     expected_wheels = [x for x in utils.expected_wheels(
                             'spam', '0.1.0', macosx_deployment_target='10.9')
-                       if 'cp27-cp27m-win' not in x]
+                       if 'cp27-cp27m-win' not in x and "pp27_73-win" not in x]
     assert set(actual_wheels) == set(expected_wheels)
 
 
@@ -36,7 +36,7 @@ def test_cpp14():
     actual_wheels = utils.cibuildwheel_run(project_dir, add_env=add_env)
     expected_wheels = [x for x in utils.expected_wheels(
                             'spam', '0.1.0', macosx_deployment_target='10.9')
-                       if 'cp27-cp27m-win' not in x and 'cp35-cp35m-win' not in x]
+                       if 'cp27-cp27m-win' not in x and 'cp35-cp35m-win' not in x and "pp27_73-win" not in x]
     assert set(actual_wheels) == set(expected_wheels)
 
 
@@ -56,5 +56,5 @@ def test_cpp17():
     actual_wheels = utils.cibuildwheel_run(project_dir, add_env=add_env)
     expected_wheels = [x for x in utils.expected_wheels(
                             'spam', '0.1.0', macosx_deployment_target='10.13')
-                       if 'cp27-cp27m-win' not in x and 'cp35-cp35m-win' not in x]
+                       if 'cp27-cp27m-win' not in x and 'cp35-cp35m-win' not in x and "pp27_73-win" not in x]
     assert set(actual_wheels) == set(expected_wheels)
