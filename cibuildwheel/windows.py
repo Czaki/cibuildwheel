@@ -85,6 +85,8 @@ def install_pypy(version, arch, url):
         extract_zip(pypy_zip, os.path.dirname(installation_path))
         pypy_exe = 'pypy3.exe' if version[0] == '3' else 'pypy.exe'
         shell(['mklink', os.path.join(installation_path, 'python.exe'), os.path.join(installation_path, pypy_exe)])
+        if not os.path.exists(os.path.join(installation_path, 'bin')):
+            os.makedirs(os.path.join(installation_path, 'bin'))
         shell(['mklink', '/d', os.path.join(installation_path, 'Scripts'), os.path.join(installation_path, 'bin')])
     return installation_path
 
