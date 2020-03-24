@@ -120,6 +120,7 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
         env['PATH'] = os.pathsep.join([
             installation_path,
             os.path.join(installation_path, 'Scripts'),
+            os.path.join(installation_path, 'bin'),
             env['PATH']
         ])
         # update env with results from CIBW_ENVIRONMENT
