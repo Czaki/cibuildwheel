@@ -150,7 +150,10 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
         # prepare the Python environment
         shell(['python', '-m', 'pip', 'install', '--upgrade', 'pip'] + dependency_constraint_flags, env=env)
         shell(['pip', '--version'], env=env)
-        shell(['pip', 'install', '--upgrade', 'setuptools', 'wheel'] + dependency_constraint_flags, env=env)
+        if os.path.exists(os.path.join(installation_path, "pypy3.exe")) or os.path.exists(os.path.join(installation_path, "pypy.exe")):
+            shell(['pip', 'install', '--upgrade', 'wheel'] + dependency_constraint_flags, env=env)
+        else:
+            shell(['pip', 'install', '--upgrade', 'setuptools', 'wheel'] + dependency_constraint_flags, env=env)
 
         # run the before_build command
         if before_build:
