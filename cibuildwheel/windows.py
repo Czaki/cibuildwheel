@@ -19,7 +19,7 @@ IS_RUNNING_ON_AZURE = os.path.exists('C:\\hostedtoolcache')
 IS_RUNNING_ON_TRAVIS = os.environ.get('TRAVIS_OS_NAME') == 'windows'
 
 
-def shell(args, env=None, cwd=None):
+def call(args, env=None, cwd=None):
     print('+ ' + ' '.join(args))
     return subprocess.check_call(' '.join(args), env=env, cwd=cwd, shell=True)
 
@@ -69,7 +69,7 @@ def extract_zip(zip_src, dest):
 def install_cpython(version, arch, nuget):
     nuget_args = get_nuget_args(version, arch)
     installation_path = os.path.join(nuget_args[-1], nuget_args[0] + '.' + version, 'tools')
-    shell([nuget, 'install'] + nuget_args)
+    call([nuget, 'install'] + nuget_args)
     return installation_path
 
 
@@ -84,8 +84,8 @@ def install_pypy(version, arch, url):
         # Extract to the parent directory because the zip file still contains a directory
         extract_zip(pypy_zip, os.path.dirname(installation_path))
         pypy_exe = 'pypy3.exe' if version[0] == '3' else 'pypy.exe'
-        shell(['mklink', os.path.join(installation_path, 'python.exe'), os.path.join(installation_path, pypy_exe)])
-        shell(['mklink', '/d', os.path.join(installation_path, 'Scripts'), os.path.join(installation_path, 'bin')])
+        call(['mklink', os.path.join(installation_path, 'python.exe'), os.path.join(installation_path, pypy_exe)])
+        call(['mklink', '/d', os.path.join(installation_path, 'Scripts'), os.path.join(installation_path, 'bin')])
     return installation_path
 
 
@@ -116,9 +116,9 @@ def setup_python(python_configuration, dependency_constraints, environment):
     env = environment.as_dictionary(prev_environment=env)
 
     # for the logs - check we're running the right version of python
-    shell(['where', 'python'], env=env)
-    shell(['python', '--version'], env=env)
-    shell(['python', '-c', '"import struct; print(struct.calcsize(\'P\') * 8)"'], env=env)
+    call(['where', 'python'], env=env)
+    call(['python', '--version'], env=env)
+    call(['python', '-c', '"import struct; print(struct.calcsize(\'P\') * 8)"'], env=env)
     where_python = subprocess.check_output(['where', 'python'], env=env, universal_newlines=True).splitlines()[0].strip()
     if where_python != os.path.join(installation_path, 'python.exe'):
         print("cibuildwheel: python available on PATH doesn't match our installed instance. If you have modified PATH, ensure that you don't overwrite cibuildwheel's entry or insert python above it.", file=sys.stderr)
@@ -132,7 +132,7 @@ def setup_python(python_configuration, dependency_constraints, environment):
 
     # make sure pip is installed
     if not os.path.exists(os.path.join(installation_path, 'Scripts', 'pip.exe')):
-        shell(['python', get_pip_script] + dependency_constraint_flags, env=env, cwd="C:\\cibw")
+        call(['python', get_pip_script] + dependency_constraint_flags, env=env, cwd="C:\\cibw")
     assert os.path.exists(os.path.join(installation_path, 'Scripts', 'pip.exe'))
     where_pip = subprocess.check_output(['where', 'pip'], env=env, universal_newlines=True).splitlines()[0].strip()
     if where_pip.strip() != os.path.join(installation_path, 'Scripts', 'pip.exe'):
@@ -140,9 +140,9 @@ def setup_python(python_configuration, dependency_constraints, environment):
         exit(1)
 
     # prepare the Python environment
-    shell(['python', '-m', 'pip', 'install', '--upgrade', 'pip'] + dependency_constraint_flags, env=env)
-    shell(['pip', '--version'], env=env)
-    shell(['pip', 'install', '--upgrade', 'setuptools', 'wheel'] + dependency_constraint_flags, env=env)
+    call(['python', '-m', 'pip', 'install', '--upgrade', 'pip'] + dependency_constraint_flags, env=env)
+    call(['pip', '--version'], env=env)
+    call(['pip', 'install', '--upgrade', 'setuptools', 'wheel'] + dependency_constraint_flags, env=env)
 
     return env, dependency_constraint_flags
 
@@ -165,13 +165,13 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
         # run the before_build command
         if before_build:
             before_build_prepared = prepare_command(before_build, project=abs_project_dir)
-            shell([before_build_prepared], env=env)
+            call([before_build_prepared], env=env)
 
         # build the wheel
         if os.path.exists(built_wheel_dir):
             shutil.rmtree(built_wheel_dir)
         os.makedirs(built_wheel_dir)
-        shell(['pip', 'wheel', abs_project_dir, '-w', built_wheel_dir, '--no-deps'] + get_build_verbosity_extra_flags(build_verbosity), env=env)
+        call(['pip', 'wheel', abs_project_dir, '-w', built_wheel_dir, '--no-deps'] + get_build_verbosity_extra_flags(build_verbosity), env=env)
         built_wheel = glob(os.path.join(built_wheel_dir, '*.whl'))[0]
 
         # repair the wheel
@@ -183,18 +183,18 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
             shutil.move(built_wheel, repaired_wheel_dir)
         else:
             repair_command_prepared = prepare_command(repair_command, wheel=built_wheel, dest_dir=repaired_wheel_dir)
-            shell([repair_command_prepared], env=env)
+            call([repair_command_prepared], env=env)
         repaired_wheel = glob(os.path.join(repaired_wheel_dir, '*.whl'))[0]
 
         if test_command:
             # set up a virtual environment to install and test from, to make sure
             # there are no dependencies that were pulled in at build time.
-            shell(['pip', 'install', 'virtualenv'] + dependency_constraint_flags, env=env)
+            call(['pip', 'install', 'virtualenv'] + dependency_constraint_flags, env=env)
             venv_dir = tempfile.mkdtemp()
 
             # Use --no-download to ensure determinism by using seed libraries
             # built into virtualenv
-            shell(['python', '-m', 'virtualenv', '--no-download', venv_dir], env=env)
+            call(['python', '-m', 'virtualenv', '--no-download', venv_dir], env=env)
 
             virtualenv_env = env.copy()
 
@@ -209,24 +209,24 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
             virtualenv_env["__CIBW_VIRTUALENV_PATH__"] = venv_dir
 
             # check that we are using the Python from the virtual environment
-            shell(['which', 'python'], env=virtualenv_env)
+            call(['which', 'python'], env=virtualenv_env)
 
             if before_test:
                 before_test_prepared = prepare_command(before_test, project=abs_project_dir)
-                shell([before_test_prepared], env=virtualenv_env)
+                call([before_test_prepared], env=virtualenv_env)
 
             # install the wheel
-            shell(['pip', 'install', repaired_wheel + test_extras], env=virtualenv_env)
+            call(['pip', 'install', repaired_wheel + test_extras], env=virtualenv_env)
 
             # test the wheel
             if test_requires:
-                shell(['pip', 'install'] + test_requires, env=virtualenv_env)
+                call(['pip', 'install'] + test_requires, env=virtualenv_env)
 
             # run the tests from c:\, with an absolute path in the command
             # (this ensures that Python runs the tests against the installed wheel
             # and not the repo code)
             test_command_prepared = prepare_command(test_command, project=abs_project_dir)
-            shell([test_command_prepared], cwd='c:\\', env=virtualenv_env)
+            call([test_command_prepared], cwd='c:\\', env=virtualenv_env)
 
             # clean up
             shutil.rmtree(venv_dir)
