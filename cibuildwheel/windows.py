@@ -20,7 +20,7 @@ IS_RUNNING_ON_AZURE = os.path.exists('C:\\hostedtoolcache')
 IS_RUNNING_ON_TRAVIS = os.environ.get('TRAVIS_OS_NAME') == 'windows'
 
 
-def call(args, env=None, cwd=None, shell=True):
+def call(args, env=None, cwd=None, shell=False):
     # print the command executing for the logs
     if shell:
         print('+ %s' % args)
