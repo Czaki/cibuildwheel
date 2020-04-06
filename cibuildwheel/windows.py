@@ -1,4 +1,5 @@
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -19,10 +20,14 @@ IS_RUNNING_ON_AZURE = os.path.exists('C:\\hostedtoolcache')
 IS_RUNNING_ON_TRAVIS = os.environ.get('TRAVIS_OS_NAME') == 'windows'
 
 
-def call(args, env=None, cwd=None):
-    print('+ ' + ' '.join(args))
-    return subprocess.check_call(' '.join(args), env=env, cwd=cwd, shell=True)
-
+def call(args, env=None, cwd=None, shell=True):
+    # print the command executing for the logs
+    if shell:
+        print('+ %s' % args)
+    else:
+        print('+ ' + ' '.join(shlex.quote(a) for a in args))
+    args = " ".join(args)
+    return subprocess.check_call(args, env=env, cwd=cwd, shell=shell)
 
 def get_nuget_args(version, arch):
     python_name = 'python' if version[0] == '3' else 'python2'
@@ -102,6 +107,7 @@ def setup_python(python_configuration, dependency_constraint_flags, environment)
         raise ValueError("Unknown Python implementation")
 
     assert os.path.exists(os.path.join(installation_path, 'python.exe'))
+    print("# python path", installation_path)
 
     # set up PATH and environment variables for run_with_env
     env = os.environ.copy()
@@ -117,7 +123,7 @@ def setup_python(python_configuration, dependency_constraint_flags, environment)
 
     # for the logs - check we're running the right version of python
     call(['where', 'python'], env=env)
-    call(['python', '--version'], env=env)
+    call(['python', '--version'], env=env, shell=True)
     call(['python', '-c', '"import struct; print(struct.calcsize(\'P\') * 8)"'], env=env)
     where_python = subprocess.check_output(['where', 'python'], env=env, universal_newlines=True).splitlines()[0].strip()
     if where_python != os.path.join(installation_path, 'python.exe'):
@@ -165,7 +171,7 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
         # run the before_build command
         if before_build:
             before_build_prepared = prepare_command(before_build, project=abs_project_dir)
-            call([before_build_prepared], env=env)
+            call([before_build_prepared], env=env, shell=True)
 
         # build the wheel
         if os.path.exists(built_wheel_dir):
@@ -183,7 +189,7 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
             shutil.move(built_wheel, repaired_wheel_dir)
         else:
             repair_command_prepared = prepare_command(repair_command, wheel=built_wheel, dest_dir=repaired_wheel_dir)
-            call([repair_command_prepared], env=env)
+            call([repair_command_prepared], env=env, shell=True)
         repaired_wheel = glob(os.path.join(repaired_wheel_dir, '*.whl'))[0]
 
         if test_command:
@@ -213,7 +219,7 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
 
             if before_test:
                 before_test_prepared = prepare_command(before_test, project=abs_project_dir)
-                call([before_test_prepared], env=virtualenv_env)
+                call([before_test_prepared], env=virtualenv_env, shell=True)
 
             # install the wheel
             call(['pip', 'install', repaired_wheel + test_extras], env=virtualenv_env)
@@ -226,7 +232,7 @@ def build(project_dir, output_dir, test_command, before_test, test_requires, tes
             # (this ensures that Python runs the tests against the installed wheel
             # and not the repo code)
             test_command_prepared = prepare_command(test_command, project=abs_project_dir)
-            call([test_command_prepared], cwd='c:\\', env=virtualenv_env)
+            call([test_command_prepared], cwd='c:\\', env=virtualenv_env, shell=True)
 
             # clean up
             shutil.rmtree(venv_dir)
